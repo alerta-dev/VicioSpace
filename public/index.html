@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Viciados Space</title>
+<title>Vibra</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--c:#8b5cf6;--b1:#16102b;--b2:#0a1226;--t:#f3f0ff;--m:#f3f0ff99;--g:#ffffff14}
@@ -38,6 +38,9 @@ main{max-width:1180px;margin:0 auto;padding:6px 22px 40px}
 .rs b,.qi>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qi.on{background:color-mix(in srgb,var(--c) 35%,transparent)}
 .clock{font:800 30px 'Bricolage Grotesque';margin-bottom:8px}
 .pn summary{cursor:pointer;font:600 17px 'Bricolage Grotesque'}#bd{width:100%;aspect-ratio:8/5;border-radius:12px;background:#0000004d;touch-action:none;cursor:crosshair;display:block}
+#bgm{position:fixed;inset:-30px;width:calc(100% + 60px);height:calc(100% + 60px);object-fit:cover;z-index:-1;filter:blur(16px) brightness(.5) saturate(1.1);pointer-events:none}
+.chat{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:6px;font-size:14px;overflow-wrap:anywhere}.chat b{color:var(--c)}
+.qi[draggable]{cursor:grab}.row select{flex:1;min-width:0}.pn+.pn{margin-top:0}
 </style></head><body><div id="app"></div>
 <script>
 const BG={noche:['#16102b','#0a1226'],atardecer:['#3a1233','#1f1030'],bosque:['#0d2b24','#0b1e33'],oceano:['#06283d','#0a1022']};
@@ -50,18 +53,22 @@ async function api(p,o={}){
   const j=await r.json().catch(()=>({}));
   if(r.status===401&&p!=='login'){delete localStorage.t;route();throw'Sesión vencida'}
   if(!r.ok)throw j.error||'Error';return j}
-const bar=()=>`<header><a href="#/" class="logo">🎧 ViciadosSpace</a><span id="rn"></span><span class="sp"></span><label title="Cambiar mi foto de perfil" style="cursor:pointer">${ua(me(),localStorage.av,1)}<input type="file" id="mf" accept="image/*" hidden></label><small>${esc(me()||'')}</small><button class="ghost" id="lo">Salir</button></header>`;
+const bar=()=>`<header><a href="#/" class="logo">🎧 Vibra</a><span id="rn"></span><span class="sp"></span><label title="Cambiar mi foto de perfil" style="cursor:pointer">${ua(me(),localStorage.av,1)}<input type="file" id="mf" accept="image/*" hidden></label><small>${esc(me()||'')}</small><button class="ghost" id="lo">Salir</button></header>`;
 const ua=(n,v,f)=>`<span class="ua">${esc((n||'?')[0].toUpperCase())}${f||v?`<img src="/api/img/u/${encodeURIComponent(n)}?v=${v||0}" alt="" onerror="this.remove()">`:''}</span>`;
 function shrink(file,w,h,q){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d'),k=Math.max(w/im.width,h/im.height),dw=im.width*k,dh=im.height*k;x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);ok(c.toDataURL('image/jpeg',q).split(',')[1])};im.onerror=()=>no('No pude leer esa imagen');im.src=URL.createObjectURL(file)})}
 document.addEventListener('change',async e=>{if(e.target.id!=='mf')return;const f=e.target.files[0];if(!f)return;try{const r=await api('me/img',{method:'POST',body:{data:await shrink(f,160,160,.85)}});localStorage.av=r.v;route()}catch(x){alert(x)}});
 document.addEventListener('click',e=>{if(e.target.id==='lo'){localStorage.clear();route()}});
+function setBg(u){const o=document.getElementById('bgm');if(!u){if(o)o.remove();return}if(o&&o.dataset.u===u)return;if(o)o.remove();
+  const v=/\.(mp4|webm|ogv)(\?|$)/i.test(u),e=document.createElement(v?'video':'img');e.id='bgm';e.dataset.u=u;
+  if(v){e.muted=true;e.defaultMuted=true;e.loop=true;e.autoplay=true;e.playsInline=true;e.setAttribute('muted','')}
+  e.onerror=()=>e.remove();e.src=u;document.body.prepend(e);if(v)e.play().catch(()=>{})}
 function setTheme(c,bg){const s=document.documentElement.style,b=BG[bg]||BG.noche;s.setProperty('--c',c||'#8b5cf6');s.setProperty('--b1',b[0]);s.setProperty('--b2',b[1])}
-function route(){T.forEach(clearInterval);T=[];setTheme();const h=location.hash;
+function route(){T.forEach(clearInterval);T=[];setTheme();document.getElementById('bgm')?.remove();const h=location.hash;
   if(!localStorage.t)return login();if(h.startsWith('#/s/'))return room(h.slice(4));lobby()}
 addEventListener('hashchange',route);route();
 
 function login(){
-  app.innerHTML=`<div class="box"><h1>ViciadosSpace</h1><small>Música en sala, solo para invitados</small><input id="lu" placeholder="Usuario" autocomplete="username"><input id="lp" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div class="err" id="le"></div></div>`;
+  app.innerHTML=`<div class="box"><h1>Vibra</h1><small>Música en sala, solo para invitados</small><input id="lu" placeholder="Usuario" autocomplete="username"><input id="lp" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div class="err" id="le"></div></div>`;
   const send=async()=>{try{const r=await api('login',{method:'POST',body:{u:lu.value.trim(),p:lp.value}});localStorage.t=r.t;localStorage.u=r.u;route()}catch(x){le.textContent=x}};
   go.onclick=send;lp.onkeydown=e=>{if(e.key==='Enter')send()}}
 
@@ -76,20 +83,32 @@ async function room(id){
   app.innerHTML=bar()+`<main class="rm"><section><div class="pl"><div id="yt"></div></div>
   <div class="np"><div class="disc" id="dc"></div><div><h2 id="tt">Nada sonando</h2><small id="by">Busca una canción y dale clic</small></div>
   <div class="ctl"><button id="pv">⏮</button><button id="pp">⏯</button><button id="nx">⏭</button><input id="vol" type="range" min="0" max="100" value="70" aria-label="Volumen"></div></div>
-  <details class="pn"><summary>Pizarra compartida</summary><div class="row"><input id="bc" type="color" value="#ffffff"><select id="bw"><option value="3">Fino</option><option value="7">Medio</option><option value="14">Grueso</option></select><button class="ghost" id="bx">Borrar todo</button></div><canvas id="bd" width="800" height="500"></canvas></details>
-  <div class="row"><input id="q" placeholder="Buscar música o pegar un enlace de YouTube"><button id="sb">Buscar</button></div><div id="res"></div></section>
-  <aside><div class="pn"><h3>Cola</h3><div id="ql"><small>La cola está vacía</small></div></div>
+  <div class="row"><input id="q" placeholder="Buscar música o pegar un enlace de YouTube"><button id="sb">Buscar</button></div><div id="res"></div><details class="pn"><summary>Pizarra compartida</summary><div class="row"><input id="bc" type="color" value="#ffffff"><select id="bw"><option value="3">Fino</option><option value="7">Medio</option><option value="14">Grueso</option></select><button class="ghost" id="bx">Borrar todo</button></div><canvas id="bd" width="800" height="500"></canvas></details></section>
+  <aside><div class="pn"><h3>Cola</h3><div id="ql"><small>La cola está vacía</small></div><div class="row"><button class="ghost" id="sv">Guardar cola como lista</button></div><div class="row"><select id="pl"><option value="">Mis listas guardadas</option></select><button class="ghost" id="pa">Agregar</button><button class="ghost" id="pd" title="Borrar lista">🗑</button></div></div>
+  <div class="pn"><h3>Chat</h3><div class="chat" id="cl"></div><div class="row"><input id="ci" maxlength="300" placeholder="Escribe un mensaje"><button id="cs">Enviar</button></div></div>
   <div class="pn"><h3>Pomodoro compartido</h3><div class="clock" id="ck"></div><div class="row"><button id="pw">Enfocar 25 min</button><button class="ghost" id="pr">Descanso 5</button><button class="ghost" id="pi">Parar</button></div></div>
   <div class="pn"><h3>Personalizar sala</h3><div class="row"><input id="cn" placeholder="Nombre"><input id="cc" type="color" value="#8b5cf6"></div>
-  <div class="row"><select id="ce">${['🎧','🌙','🔥','🌿','🚀','🪩','☕'].map(e=>`<option>${e}</option>`).join('')}</select><select id="cb">${Object.keys(BG).map(k=>`<option>${k}</option>`).join('')}</select></div><div class="row"><label class="fl">Banner<input type="file" id="fb" accept="image/*" hidden></label><label class="fl">Imagen de sala<input type="file" id="fa" accept="image/*" hidden></label></div><button class="ghost" id="cd">Eliminar sala</button></div></aside></main>`;
-  const act=async b=>{try{R=await api(`rooms/${id}/act`,{method:'POST',body:b});off=R.now-Date.now();paint()}catch(x){}};
-  const th=()=>act({type:'theme',color:cc.value,emoji:ce.value,bg:cb.value,name:cn.value});
+  <div class="row"><select id="ce">${['🎧','🌙','🔥','🌿','🚀','🪩','☕'].map(e=>`<option>${e}</option>`).join('')}</select><select id="cb">${Object.keys(BG).map(k=>`<option>${k}</option>`).join('')}</select></div><div class="row"><input id="bu" placeholder="Fondo: enlace directo a GIF o video (.gif .mp4 .webm)"></div>
+  <div class="row"><label class="fl">Banner<input type="file" id="fb" accept="image/*" hidden></label><label class="fl">Imagen de sala<input type="file" id="fa" accept="image/*" hidden></label></div><button class="ghost" id="cd">Eliminar sala</button></div></aside></main>`;
+  const act=async b=>{try{R=await api(`rooms/${id}/act`,{method:'POST',body:b});off=R.now-Date.now();paint();return null}catch(x){return String(x)}};
+  const th=async()=>{await act({type:'theme',color:cc.value,emoji:ce.value,bg:cb.value,name:cn.value,bgm:bu.value.trim()});bu.value=R.bgm||''};
   pv.onclick=()=>act({type:'prev'});pp.onclick=()=>act({type:'toggle'});nx.onclick=()=>R&&act({type:'next',from:R.idx});
   vol.oninput=()=>ready&&P.setVolume(+vol.value);
   pw.onclick=()=>act({type:'pomo',mode:'work'});pr.onclick=()=>act({type:'pomo',mode:'rest'});pi.onclick=()=>act({type:'pomo',mode:'idle'});
-  cc.onchange=ce.onchange=cb.onchange=cn.onchange=th;
+  cc.onchange=ce.onchange=cb.onchange=cn.onchange=bu.onchange=th;
   cd.onclick=async()=>{if(confirm('¿Eliminar esta sala?')){try{await api(`rooms/${id}/del`,{method:'POST',body:{}});location.hash='#/'}catch(x){alert(x)}}};
   for(const [el,k,w,h,q] of [[fb,'b',640,240,.8],[fa,'a',160,160,.85]])el.onchange=async()=>{const f=el.files[0];if(!f)return;try{await api(`rooms/${id}/img`,{method:'POST',body:{k,data:await shrink(f,w,h,q)}});el.value='';await poll()}catch(x){alert(x)}};
+  let drag=null,PL={};
+  ql.ondragstart=e=>{const d=e.target.closest('[data-i]');if(d){drag=+d.dataset.i;e.dataTransfer.effectAllowed='move'}};
+  ql.ondragover=e=>{e.preventDefault()};
+  ql.ondrop=e=>{e.preventDefault();const d=e.target.closest('[data-i]');if(d&&drag!==null&&+d.dataset.i!==drag)act({type:'move',from:drag,to:+d.dataset.i});drag=null};
+  const loadPL=async()=>{try{PL=await api('pls');pl.innerHTML='<option value="">Mis listas guardadas</option>'+Object.keys(PL).map(n=>`<option>${esc(n)}</option>`).join('')}catch(x){}};
+  sv.onclick=async()=>{if(!R.queue.length){alert('La cola está vacía');return}const n=prompt('Nombre de la lista');if(!n||!n.trim())return;try{await api('pls',{method:'POST',body:{name:n.trim(),items:R.queue.map(x=>({id:x.id,title:x.title}))}});await loadPL();alert('Lista guardada')}catch(x){alert(x)}};
+  pa.onclick=()=>{const a=PL[pl.value];if(a)act({type:'addmany',vs:a})};
+  pd.onclick=async()=>{if(PL[pl.value]&&confirm('¿Borrar la lista "'+pl.value+'"?')){try{await api('pls/del',{method:'POST',body:{name:pl.value}});await loadPL()}catch(x){alert(x)}}};
+  loadPL();
+  const sendChat=()=>{const t=ci.value.trim();if(!t)return;ci.value='';act({type:'chat',t})};
+  cs.onclick=sendChat;ci.onkeydown=e=>{if(e.key==='Enter')sendChat()};
   ql.onclick=e=>{const d=e.target.closest('[data-i]');if(d)act(e.target.dataset.x?{type:'rm',i:+d.dataset.i}:{type:'play',i:+d.dataset.i})};
   let bs=[],bv=0,cur=null,busy=false;
   const dS=s=>{const c=bd.getContext('2d'),[a,...r]=s.p;c.strokeStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(a[0]*800,a[1]*500);r.length?r.forEach(q=>c.lineTo(q[0]*800,q[1]*500)):c.lineTo(a[0]*800+.1,a[1]*500);c.stroke()};
@@ -100,7 +119,11 @@ async function room(id){
   bx.onclick=()=>{if(confirm('¿Borrar la pizarra para todos?'))act({type:'clear'})};
   async function syncBoard(){if(busy||cur)return;busy=true;try{const j=await api(`rooms/${id}/board?from=${bs.length}&v=${bv}`);if(j.reset)bs=[];bv=j.v;bs.push(...j.strokes);bd.getContext('2d').clearRect(0,0,800,500);bs.forEach(dS)}catch(x){}busy=false}
   const search=async()=>{if(!q.value.trim())return;
-    if(/youtu\.?be/.test(q.value)){res.innerHTML='<small>Leyendo enlace…</small>';try{const j=await api('link?q='+encodeURIComponent(q.value.trim()));await act({type:'addmany',vs:j.items});res.innerHTML=`<small>${j.items.length>1?'Se agregaron '+j.items.length+' canciones a la cola':'Se agregó a la cola: '+esc(j.items[0].title)}</small>`;q.value=''}catch(x){res.textContent=x}return}
+    if(/youtu\.?be/.test(q.value)){res.innerHTML='<small>Leyendo enlace…</small>';try{const j=await api('link?q='+encodeURIComponent(q.value.trim())),n0=R.queue.length;
+      let e=await act({type:'addmany',vs:j.items});
+      if(R.queue.length===n0&&n0<300){for(const v of j.items){e=await act({type:'add',v});if(e)break}}
+      const n=R.queue.length-n0;
+      res.innerHTML=!n&&e?`<small>No se pudo agregar: ${esc(e)}</small>`:`<small>${n>1?'Se agregaron '+n+' canciones a la cola':n===1?'Se agregó a la cola: '+esc(j.items[0].title):'No se agregó nada: la cola ya está llena'}</small>`;q.value=''}catch(x){res.textContent=x}return}
     res.innerHTML='<small>Buscando…</small>';
     try{L=await api('search?q='+encodeURIComponent(q.value));res.innerHTML=L.map((x,i)=>`<div class="rs" data-i="${i}"><img src="${thumb(x.id)}" alt=""><div><b>${esc(x.title)}</b><small>${esc(x.ch)}</small></div><button class="ghost" data-n="1" title="Reproducir ahora">▶</button></div>`).join('')||'<small>Sin resultados</small>'}catch(x){res.textContent=x}};
   sb.onclick=search;q.onkeydown=e=>{if(e.key==='Enter')search()};
@@ -111,17 +134,20 @@ async function room(id){
 
   function paint(){
     if(!R||!document.getElementById('tt'))return;
-    const v=R.queue[R.idx];setTheme(R.color,R.bg);document.title=R.emoji+' '+R.name;
+    const v=R.queue[R.idx];setTheme(R.color,R.bg);setBg(R.bgm);document.title=R.emoji+' '+R.name;
     rn.innerHTML=`<b>${R.emoji} ${esc(R.name)}</b> <small>${esc(R.users.join(', '))}</small>`;
     tt.textContent=v?v.title:'Nada sonando';by.textContent=v?'Pedida por '+v.by:'Busca una canción y dale clic';
     dc.classList.toggle('spin',R.playing);
-    ql.innerHTML=R.queue.map((x,i)=>`<div class="qi ${i===R.idx?'on':''}" data-i="${i}"><img src="${thumb(x.id)}" alt=""><span>${esc(x.title)}</span><button class="ghost" data-x="1" title="Quitar">✕</button></div>`).join('')||'<small>La cola está vacía</small>';
-    if(!cu_ready()){cn.value=R.name;cc.value=R.color;ce.value=R.emoji;cb.value=R.bg;cn.dataset.s=1}
-    cn.disabled=cd.hidden=fb.parentElement.hidden=fa.parentElement.hidden=R.owner!==me();
+    const sg=JSON.stringify([R.idx,R.queue.map(x=>x.id+x.title)]);
+    if(ql.dataset.g!==sg){ql.dataset.g=sg;ql.innerHTML=R.queue.map((x,i)=>`<div class="qi ${i===R.idx?'on':''}" data-i="${i}" draggable="true"><img src="${thumb(x.id)}" alt=""><span>${esc(x.title)}</span><button class="ghost" data-x="1" title="Quitar">✕</button></div>`).join('')||'<small>La cola está vacía</small>'}
+    const ch=R.chat||[],cg=ch.length+':'+(ch.length?ch[ch.length-1].ts:0);
+    if(cl.dataset.g!==cg){const nb=!cl.dataset.g||cl.scrollTop+cl.clientHeight>=cl.scrollHeight-30;cl.dataset.g=cg;cl.innerHTML=ch.map(m=>`<div><b>${esc(m.u)}</b> ${esc(m.t)}</div>`).join('')||'<small>Nadie ha escrito todavía</small>';if(nb)cl.scrollTop=cl.scrollHeight}
+    if(!cu_ready()){cn.value=R.name;cc.value=R.color;ce.value=R.emoji;cb.value=R.bg;bu.value=R.bgm||'';cn.dataset.s=1}
+    cn.disabled=cd.hidden=fb.parentElement.hidden=fa.parentElement.hidden=bu.parentElement.hidden=R.owner!==me();
     if(R.bn!==bs.length||R.bv!==bv)syncBoard();
     if(ready){
       if(!v){if(key){P.stopVideo();key=''}return}
-      const want=R.idx+v.id,p=R.pos+(R.playing?(Date.now()+off-R.at)/1000:0);
+      const want=(R.ses||0)+v.id,p=R.pos+(R.playing?(Date.now()+off-R.at)/1000:0);
       if(key!==want){key=want;P.loadVideoById(v.id,p);if(!R.playing)setTimeout(()=>P.pauseVideo(),700)}
       else{const s=P.getPlayerState();
         if(R.playing){if(s!==1&&s!==3)P.playVideo();if(Math.abs(P.getCurrentTime()-p)>3)P.seekTo(p,true)}
