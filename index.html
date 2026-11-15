@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vibra</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--c:#8b5cf6;--b1:#16102b;--b2:#0a1226;--t:#f3f0ff;--m:#f3f0ff99;--g:#ffffff14}
+*{box-sizing:border-box;margin:0}
+body{font:15px/1.5 'Instrument Sans',system-ui,sans-serif;color:var(--t);min-height:100vh;background:radial-gradient(900px 600px at 80% -10%,color-mix(in srgb,var(--c) 40%,transparent),transparent),linear-gradient(160deg,var(--b1),var(--b2)) fixed}
+h1,h2,h3,.logo{font-family:'Bricolage Grotesque',sans-serif}
+a{color:inherit;text-decoration:none}small{color:var(--m)}
+header{display:flex;gap:14px;align-items:center;padding:14px 22px}.sp{flex:1}.logo{font-weight:800;font-size:20px}
+button,input,select{font:inherit;color:inherit;border:0;border-radius:10px;padding:10px 14px;background:var(--g)}
+select option{color:#000}input{flex:1;min-width:0;outline:1px solid #ffffff24}
+input[type=color]{flex:none;width:52px;padding:2px;height:42px}
+button{cursor:pointer;background:var(--c);font-weight:600}button.ghost{background:var(--g)}
+:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+main{max-width:1180px;margin:0 auto;padding:6px 22px 40px}
+.row{display:flex;gap:8px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.card{display:block;padding:18px;border-radius:18px;background:var(--g);border-top:4px solid var(--c)}
+.card b{font-size:34px}.card h3{margin:6px 0 2px}.card p{margin-top:10px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.box{max-width:340px;margin:14vh auto;display:grid;gap:12px;text-align:center}.box h1{font-size:40px}.err{color:#ff9aa8;min-height:1.5em}
+.rm{display:grid;grid-template-columns:1fr 340px;gap:22px}@media(max-width:860px){.rm{grid-template-columns:1fr}}
+.pl{aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000}.pl iframe{width:100%;height:100%;pointer-events:none}
+.np{display:flex;gap:14px;align-items:center;margin:14px 0}.np>div:nth-child(2){flex:1;min-width:0}
+.disc{width:68px;height:68px;border-radius:50%;flex:none;background:radial-gradient(circle,#0a0a0a 0 6%,var(--c) 7% 30%,#151515 31% 100%);box-shadow:0 0 0 2px #ffffff18}
+.spin{animation:sp 3s linear infinite}@keyframes sp{to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+.ctl{display:flex;gap:6px;align-items:center}.ctl button{background:var(--g);padding:8px 12px}.ctl input{width:80px;padding:0;outline:0}
+.pn{background:var(--g);border-radius:16px;padding:14px;margin-bottom:16px}.pn h3{margin-bottom:6px}
+.rs,.qi{display:flex;gap:10px;align-items:center;padding:6px;border-radius:10px;cursor:pointer}.rs:hover,.qi:hover{background:var(--g)}
+.rs img,.qi img{width:72px;aspect-ratio:16/9;object-fit:cover;border-radius:6px}.rs>div,.qi>span{flex:1;min-width:0}
+.rs b,.qi>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qi.on{background:color-mix(in srgb,var(--c) 35%,transparent)}
+.clock{font:800 30px 'Bricolage Grotesque';margin-bottom:8px}
+.pn summary{cursor:pointer;font:600 17px 'Bricolage Grotesque'}#bd{width:100%;aspect-ratio:8/5;border-radius:12px;background:#0000004d;touch-action:none;cursor:crosshair;display:block}
+</style></head><body><div id="app"></div>
+<script>
+const BG={noche:['#16102b','#0a1226'],atardecer:['#3a1233','#1f1030'],bosque:['#0d2b24','#0b1e33'],oceano:['#06283d','#0a1022']};
+let T=[],R=null,off=0,P=null,key='',ready=false;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const thumb=id=>`https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+const me=()=>localStorage.u;
+async function api(p,o={}){
+  const r=await fetch('/api/'+p,{method:o.method,headers:{'content-type':'application/json',authorization:'Bearer '+(localStorage.t||'')},body:o.body?JSON.stringify(o.body):undefined});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401&&p!=='login'){delete localStorage.t;route();throw'Sesión vencida'}
+  if(!r.ok)throw j.error||'Error';return j}
+const bar=()=>`<header><a href="#/" class="logo">🎧 Vibra</a><span id="rn"></span><span class="sp"></span><small>${esc(me()||'')}</small><button class="ghost" id="lo">Salir</button></header>`;
+document.addEventListener('click',e=>{if(e.target.id==='lo'){localStorage.clear();route()}});
+function setTheme(c,bg){const s=document.documentElement.style,b=BG[bg]||BG.noche;s.setProperty('--c',c||'#8b5cf6');s.setProperty('--b1',b[0]);s.setProperty('--b2',b[1])}
+function route(){T.forEach(clearInterval);T=[];setTheme();const h=location.hash;
+  if(!localStorage.t)return login();if(h.startsWith('#/s/'))return room(h.slice(4));lobby()}
+addEventListener('hashchange',route);route();
+
+function login(){
+  app.innerHTML=`<div class="box"><h1>Vibra</h1><small>Música en sala, solo para invitados</small><input id="lu" placeholder="Usuario" autocomplete="username"><input id="lp" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div class="err" id="le"></div></div>`;
+  const send=async()=>{try{const r=await api('login',{method:'POST',body:{u:lu.value.trim(),p:lp.value}});localStorage.t=r.t;localStorage.u=r.u;route()}catch(x){le.textContent=x}};
+  go.onclick=send;lp.onkeydown=e=>e.key==='Enter'&&send()}
+
+function lobby(){
+  app.innerHTML=bar()+`<main><h2>Salas</h2><div class="row"><input id="nn" placeholder="Nombre de tu sala nueva"><button id="mk">Crear sala</button></div><div class="grid" id="gr"></div></main>`;
+  mk.onclick=async()=>{if(!nn.value.trim())return;const r=await api('rooms',{method:'POST',body:{name:nn.value}});location.hash='#/s/'+r.id};
+  const load=async()=>{try{const l=await api('rooms');gr.innerHTML=l.map(r=>`<a class="card" href="#/s/${r.id}" style="--c:${r.color}"><b>${r.emoji}</b><h3>${esc(r.name)}</h3><small>de ${esc(r.owner)}, ${r.n} escuchando</small><p>${r.now?'Suena: '+esc(r.now):'Sin música todavía'}</p></a>`).join('')||'<p>Todavía no hay salas. Crea la primera y comparte el ambiente.</p>'}catch(x){}};
+  load();T.push(setInterval(load,4000))}
+
+async function room(id){
+  R=null;P=null;key='';ready=false;let L=[];
+  app.innerHTML=bar()+`<main class="rm"><section><div class="pl"><div id="yt"></div></div>
+  <div class="np"><div class="disc" id="dc"></div><div><h2 id="tt">Nada sonando</h2><small id="by">Busca una canción y dale clic</small></div>
+  <div class="ctl"><button id="pv">⏮</button><button id="pp">⏯</button><button id="nx">⏭</button><input id="vol" type="range" min="0" max="100" value="70" aria-label="Volumen"></div></div>
+  <details class="pn"><summary>Pizarra compartida</summary><div class="row"><input id="bc" type="color" value="#ffffff"><select id="bw"><option value="3">Fino</option><option value="7">Medio</option><option value="14">Grueso</option></select><button class="ghost" id="bx">Borrar todo</button></div><canvas id="bd" width="800" height="500"></canvas></details>
+  <div class="row"><input id="q" placeholder="Buscar música en YouTube"><button id="sb">Buscar</button></div><div id="res"></div></section>
+  <aside><div class="pn"><h3>Cola</h3><div id="ql"><small>La cola está vacía</small></div></div>
+  <div class="pn"><h3>Pomodoro compartido</h3><div class="clock" id="ck"></div><div class="row"><button id="pw">Enfocar 25 min</button><button class="ghost" id="pr">Descanso 5</button><button class="ghost" id="pi">Parar</button></div></div>
+  <div class="pn"><h3>Personalizar sala</h3><div class="row"><input id="cn" placeholder="Nombre"><input id="cc" type="color" value="#8b5cf6"></div>
+  <div class="row"><select id="ce">${['🎧','🌙','🔥','🌿','🚀','🪩','☕'].map(e=>`<option>${e}</option>`).join('')}</select><select id="cb">${Object.keys(BG).map(k=>`<option>${k}</option>`).join('')}</select></div><button class="ghost" id="cd">Eliminar sala</button></div></aside></main>`;
+  const act=async b=>{try{R=await api(`rooms/${id}/act`,{method:'POST',body:b});off=R.now-Date.now();paint()}catch(x){}};
+  const th=()=>act({type:'theme',color:cc.value,emoji:ce.value,bg:cb.value,name:cn.value});
+  pv.onclick=()=>act({type:'prev'});pp.onclick=()=>act({type:'toggle'});nx.onclick=()=>R&&act({type:'next',from:R.idx});
+  vol.oninput=()=>ready&&P.setVolume(+vol.value);
+  pw.onclick=()=>act({type:'pomo',mode:'work'});pr.onclick=()=>act({type:'pomo',mode:'rest'});pi.onclick=()=>act({type:'pomo',mode:'idle'});
+  cc.onchange=ce.onchange=cb.onchange=cn.onchange=th;
+  cd.onclick=async()=>{if(confirm('¿Eliminar esta sala?')){try{await api(`rooms/${id}/del`,{method:'POST',body:{}});location.hash='#/'}catch(x){alert(x)}}};
+  ql.onclick=e=>{const d=e.target.closest('[data-i]');if(d)act(e.target.dataset.x?{type:'rm',i:+d.dataset.i}:{type:'play',i:+d.dataset.i})};
+  let bs=[],bv=0,cur=null,busy=false;
+  const dS=s=>{const c=bd.getContext('2d'),[a,...r]=s.p;c.strokeStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(a[0]*800,a[1]*500);r.length?r.forEach(q=>c.lineTo(q[0]*800,q[1]*500)):c.lineTo(a[0]*800+.1,a[1]*500);c.stroke()};
+  const pt=e=>{const r=bd.getBoundingClientRect();return[+((e.clientX-r.left)/r.width).toFixed(3),+((e.clientY-r.top)/r.height).toFixed(3)]};
+  bd.onpointerdown=e=>{bd.setPointerCapture(e.pointerId);cur={c:bc.value,w:+bw.value,p:[pt(e)]};dS(cur)};
+  bd.onpointermove=e=>{if(!cur)return;cur.p.push(pt(e));dS({...cur,p:cur.p.slice(-2)});if(cur.p.length>=790){const s=cur;cur={...s,p:[s.p[s.p.length-1]]};act({type:'stroke',s})}};
+  bd.onpointerup=()=>{if(cur){const s=cur;cur=null;act({type:'stroke',s})}};
+  bx.onclick=()=>confirm('¿Borrar la pizarra para todos?')&&act({type:'clear'});
+  async function syncBoard(){if(busy||cur)return;busy=true;try{const j=await api(`rooms/${id}/board?from=${bs.length}&v=${bv}`);if(j.reset)bs=[];bv=j.v;bs.push(...j.strokes);bd.getContext('2d').clearRect(0,0,800,500);bs.forEach(dS)}catch(x){}busy=false}
+  const search=async()=>{if(!q.value.trim())return;res.innerHTML='<small>Buscando…</small>';
+    try{L=await api('search?q='+encodeURIComponent(q.value));res.innerHTML=L.map((x,i)=>`<div class="rs" data-i="${i}"><img src="${thumb(x.id)}" alt=""><div><b>${esc(x.title)}</b><small>${esc(x.ch)}</small></div><button class="ghost" data-n="1" title="Reproducir ahora">▶</button></div>`).join('')||'<small>Sin resultados</small>'}catch(x){res.textContent=x}};
+  sb.onclick=search;q.onkeydown=e=>e.key==='Enter'&&search();
+  res.onclick=e=>{const d=e.target.closest('[data-i]');if(d)act({type:e.target.dataset.n?'now':'add',v:L[+d.dataset.i]})};
+
+  await new Promise(ok=>{if(window.YT&&YT.Player)return ok();window.onYouTubeIframeAPIReady=ok;const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s)});
+  P=new YT.Player('yt',{width:'100%',height:'100%',playerVars:{controls:0,disablekb:1,rel:0,playsinline:1},events:{onReady:()=>{P.setVolume(70);ready=true;paint()},onStateChange:e=>{if(e.data===0&&R&&R.idx>=0)act({type:'next',from:R.idx})}}});
+
+  function paint(){
+    if(!R||!document.getElementById('tt'))return;
+    const v=R.queue[R.idx];setTheme(R.color,R.bg);document.title=R.emoji+' '+R.name;
+    rn.innerHTML=`<b>${R.emoji} ${esc(R.name)}</b> <small>${esc(R.users.join(', '))}</small>`;
+    tt.textContent=v?v.title:'Nada sonando';by.textContent=v?'Pedida por '+v.by:'Busca una canción y dale clic';
+    dc.classList.toggle('spin',R.playing);
+    ql.innerHTML=R.queue.map((x,i)=>`<div class="qi ${i===R.idx?'on':''}" data-i="${i}"><img src="${thumb(x.id)}" alt=""><span>${esc(x.title)}</span><button class="ghost" data-x="1" title="Quitar">✕</button></div>`).join('')||'<small>La cola está vacía</small>';
+    if(!cu_ready()){cn.value=R.name;cc.value=R.color;ce.value=R.emoji;cb.value=R.bg;cn.dataset.s=1}
+    cn.disabled=cd.hidden=R.owner!==me();
+    if(R.bn!==bs.length||R.bv!==bv)syncBoard();
+    if(ready){
+      if(!v){if(key){P.stopVideo();key=''}return}
+      const want=R.idx+v.id,p=R.pos+(R.playing?(Date.now()+off-R.at)/1000:0);
+      if(key!==want){key=want;P.loadVideoById(v.id,p);if(!R.playing)setTimeout(()=>P.pauseVideo(),700)}
+      else{const s=P.getPlayerState();
+        if(R.playing){if(s!==1&&s!==3)P.playVideo();if(Math.abs(P.getCurrentTime()-p)>3)P.seekTo(p,true)}
+        else if(s===1)P.pauseVideo()}}
+    clock()}
+  const cu_ready=()=>cn.dataset.s;
+  function clock(){if(!R)return;const l=R.pomo.end-(Date.now()+off),m=R.pomo.mode,f=n=>String(n).padStart(2,0);
+    ck.textContent=m==='idle'?'Listo para empezar':l<=0?'¡Tiempo! Cambien de fase':`${m==='work'?'Enfoque':'Descanso'} ${f(Math.floor(l/60000))}:${f(Math.floor(l/1000)%60)}`}
+  const poll=async()=>{try{R=await api('rooms/'+id);off=R.now-Date.now();paint()}catch(x){if(x==='No existe')location.hash='#/'}};
+  await poll();T.push(setInterval(poll,1500),setInterval(clock,500))}
+</script></body></html>
