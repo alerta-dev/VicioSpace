@@ -96,6 +96,21 @@ export class Hub {
       d.uv ??= {}; d.uv[u] = now; await this.s.storage.put('d', d);
       return J({ v: now });
     }
+    if (p[0] === 'pls') { // listas guardadas por usuario
+      const k = 'pl:' + u, m = (await this.s.storage.get(k)) || {};
+      if (req.method === 'POST') {
+        if (p[1] === 'del') delete m[String(b.name)];
+        else {
+          const n = String(b.name || '').trim().slice(0, 40);
+          const it = (Array.isArray(b.items) ? b.items : []).filter(v => v && /^[\w-]{11}$/.test(v.id)).slice(0, 200).map(v => ({ id: v.id, title: String(v.title).slice(0, 120) }));
+          if (!n || !it.length) return J({ error: 'No hay nada que guardar' }, 400);
+          if (!m[n] && Object.keys(m).length >= 20) return J({ error: 'Máximo 20 listas guardadas' }, 400);
+          m[n] = it;
+        }
+        await this.s.storage.put(k, m);
+      }
+      return J(m);
+    }
     if (p[0] === 'rl') { // límite de intentos de login: 5 fallos = bloqueo de 15 min por IP
       const k = 'rl:' + req.headers.get('x-ip'), e = (await this.s.storage.get(k)) || { n: 0, t: 0 }, W = 15 * 60000;
       if (p[1] === 'check') return J(e.n >= 5 && now - e.t < W ? { blocked: true, wait: Math.ceil((W - (now - e.t)) / 60000) } : {});
@@ -106,7 +121,7 @@ export class Hub {
     if (!p[1]) {
       if (req.method === 'POST') {
         const id = crypto.randomUUID().slice(0, 8);
-        d.rooms[id] = { id, name: String(b.name || 'Sala').slice(0, 40), owner: u, color: '#8b5cf6', emoji: '🎧', bg: 'noche', board: [], bv: 0, queue: [], idx: -1, playing: false, pos: 0, at: now, pomo: { mode: 'idle', end: 0 } };
+        d.rooms[id] = { id, name: String(b.name || 'Sala').slice(0, 40), owner: u, color: '#8b5cf6', emoji: '🎧', bg: 'noche', bgm: '', ses: 0, chat: [], board: [], bv: 0, queue: [], idx: -1, playing: false, pos: 0, at: now, pomo: { mode: 'idle', end: 0 } };
         w = 1; o = { id };
       } else o = Object.values(d.rooms).map(r => ({ id: r.id, name: r.name, owner: r.owner, color: r.color, emoji: r.emoji, now: r.queue[r.idx]?.title, ib: r.ib || 0, ia: r.ia || 0, ou: d.uv?.[r.owner] || 0, n: this.who(r.id).length }));
     } else {
@@ -123,7 +138,7 @@ export class Hub {
         if (r.owner !== u) return J({ error: 'Solo quien creó la sala puede eliminarla' }, 403);
         delete d.rooms[r.id]; await this.s.storage.delete([`img:b:${r.id}`, `img:a:${r.id}`]); w = 1; o = {};
       } else {
-        r.board ??= []; r.bv ??= 0;
+        r.board ??= []; r.bv ??= 0; r.chat ??= [];
         if (p[2] === 'board') {
           const sp = new URL(req.url).searchParams, same = Number(sp.get('v')) === r.bv;
           return J({ v: r.bv, reset: !same, strokes: r.board.slice(same ? Number(sp.get('from')) || 0 : 0) });
@@ -140,7 +155,7 @@ export class Hub {
 
 function act(r, b, u, now) {
   const cur = () => r.pos + (r.playing ? (now - r.at) / 1000 : 0);
-  const go = i => { r.idx = i; r.pos = 0; r.at = now; r.playing = true; };
+  const go = i => { r.idx = i; r.pos = 0; r.at = now; r.playing = true; r.ses = (r.ses || 0) + 1; };
   const q = r.queue;
   switch (b.type) {
     case 'add': case 'now': {
@@ -151,9 +166,21 @@ function act(r, b, u, now) {
       else { q.push(it); if (r.idx < 0 || b.type === 'now') go(q.length - 1); }
       break;
     }
+    case 'move': {
+      const { from, to } = b;
+      if (!Number.isInteger(from) || !Number.isInteger(to) || !q[from] || to < 0 || to >= q.length || from === to) break;
+      const [it] = q.splice(from, 1); q.splice(to, 0, it);
+      if (r.idx === from) r.idx = to; else if (from < r.idx && to >= r.idx) r.idx--; else if (from > r.idx && to <= r.idx) r.idx++;
+      break;
+    }
+    case 'chat': {
+      const t = String(b.t || '').trim().slice(0, 300);
+      if (t) { r.chat.push({ u, t, ts: now }); if (r.chat.length > 50) r.chat.shift(); }
+      break;
+    }
     case 'addmany': {
       const first = q.length;
-      for (const v of Array.isArray(b.vs) ? b.vs.slice(0, 100) : []) {
+      for (const v of Array.isArray(b.vs) ? b.vs.slice(0, 200) : []) {
         if (q.length >= 300) break;
         if (v && /^[\w-]{11}$/.test(v.id)) q.push({ id: v.id, title: String(v.title).slice(0, 120), by: u });
       }
@@ -168,12 +195,13 @@ function act(r, b, u, now) {
       const i = b.i; if (!Number.isInteger(i) || !q[i]) break;
       q.splice(i, 1);
       if (i < r.idx) r.idx--;
-      else if (i === r.idx) { if (!q.length) { r.idx = -1; r.playing = false; } else { r.idx = Math.min(r.idx, q.length - 1); r.pos = 0; r.at = now; } }
+      else if (i === r.idx) { if (!q.length) { r.idx = -1; r.playing = false; } else { r.idx = Math.min(r.idx, q.length - 1); r.pos = 0; r.at = now; r.ses = (r.ses || 0) + 1; } }
       break;
     }
     case 'theme':
       if (/^#[0-9a-f]{6}$/i.test(b.color)) r.color = b.color;
       if (BGS.includes(b.bg)) r.bg = b.bg;
+      if (typeof b.bgm === 'string' && u === r.owner) { const x = b.bgm.trim(); if (x === '' || /^https:\/\/[^\s"'()<>\\]{4,300}$/.test(x)) r.bgm = x; }
       if (b.emoji) r.emoji = String(b.emoji).slice(0, 4);
       if (b.name && u === r.owner) r.name = String(b.name).slice(0, 40);
       break;
