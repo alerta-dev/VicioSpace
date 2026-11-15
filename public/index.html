@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Viciados Space</title>
+<title>Vibra</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--c:#8b5cf6;--b1:#16102b;--b2:#0a1226;--t:#f3f0ff;--m:#f3f0ff99;--g:#ffffff14}
@@ -65,7 +65,7 @@ async function api(p,o={}){
   const j=await r.json().catch(()=>({}));
   if(r.status===401&&p!=='login'){delete localStorage.t;route();throw'Sesión vencida'}
   if(!r.ok)throw j.error||'Error';return j}
-const bar=()=>`<header><a href="#/" class="logo">🎧 Viciados Space</a><span id="rn"></span><span class="sp"></span><label title="Cambiar mi foto de perfil" style="cursor:pointer">${ua(me(),localStorage.av,1)}<input type="file" id="mf" accept="image/*" hidden></label><small>${esc(me()||'')}</small><button class="ghost" id="lo">Salir</button></header>`;
+const bar=()=>`<header><a href="#/" class="logo">🎧 Vibra</a><span id="rn"></span><span class="sp"></span><label title="Cambiar mi foto de perfil" style="cursor:pointer">${ua(me(),localStorage.av,1)}<input type="file" id="mf" accept="image/*" hidden></label><small>${esc(me()||'')}</small><button class="ghost" id="lo">Salir</button></header>`;
 const ua=(n,v,f)=>`<span class="ua">${esc((n||'?')[0].toUpperCase())}${f||v?`<img src="/api/img/u/${encodeURIComponent(n)}?v=${v||0}" alt="" onerror="this.remove()">`:''}</span>`;
 function shrink(file,w,h,q){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d'),k=Math.max(w/im.width,h/im.height),dw=im.width*k,dh=im.height*k;x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);ok(c.toDataURL('image/jpeg',q).split(',')[1])};im.onerror=()=>no('No pude leer esa imagen');im.src=URL.createObjectURL(file)})}
 document.addEventListener('change',async e=>{if(e.target.id!=='mf')return;const f=e.target.files[0];if(!f)return;try{const r=await api('me/img',{method:'POST',body:{data:await shrink(f,160,160,.85)}});localStorage.av=r.v;route()}catch(x){alert(x)}});
@@ -80,7 +80,7 @@ function route(){T.forEach(clearInterval);T=[];setTheme();document.getElementByI
 addEventListener('hashchange',route);route();
 
 function login(){
-  app.innerHTML=`<div class="box"><h1>Viciados Space</h1><small>Música en sala, solo para invitados</small><input id="lu" placeholder="Usuario" autocomplete="username"><input id="lp" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div class="err" id="le"></div></div>`;
+  app.innerHTML=`<div class="box"><h1>Vibra</h1><small>Música en sala, solo para invitados</small><input id="lu" placeholder="Usuario" autocomplete="username"><input id="lp" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div class="err" id="le"></div></div>`;
   const send=async()=>{try{const r=await api('login',{method:'POST',body:{u:lu.value.trim(),p:lp.value}});localStorage.t=r.t;localStorage.u=r.u;route()}catch(x){le.textContent=x}};
   go.onclick=send;lp.onkeydown=e=>{if(e.key==='Enter')send()}}
 
@@ -98,7 +98,7 @@ async function room(id){
   <div class="row"><input id="q" placeholder="Buscar música o pegar un enlace de YouTube"><button id="sb">Buscar</button></div><div id="res"></div></section>
   <aside class="side"><div class="sh"><div class="ra" id="sa"></div><div><h3 id="sn"></h3><small id="so"></small></div></div>
   <div id="tabs"><button data-t="chat" title="Chat" aria-label="Chat">💬<i id="cbd"></i></button><button data-t="cola" class="on" title="Cola" aria-label="Cola">☰</button><button data-t="pomo" title="Pomodoro" aria-label="Pomodoro">🍅</button><button data-t="pizarra" title="Pizarra" aria-label="Pizarra">🎨</button><button data-t="ajustes" title="Personalizar sala" aria-label="Personalizar sala">⚙️</button></div>
-  <div class="tp" data-p="chat" hidden><div class="chat" id="cl"></div><div class="row"><input id="ci" maxlength="300" placeholder="Escribe un mensaje"><button id="cs">Enviar</button></div></div>
+  <div class="tp" data-p="chat" hidden><div class="chat" id="cl"></div><div class="row"><input id="ci" maxlength="300" placeholder="Escribe un mensaje"><button class="ghost" id="mu"></button><button id="cs">Enviar</button></div></div>
   <div class="tp" data-p="cola"><small id="qn"></small><div id="ql" class="grow"><small>La cola está vacía</small></div><div class="row"><select id="pl"><option value="">Mis listas guardadas</option></select><button class="ghost" id="pa">Agregar</button><button class="ghost" id="pd" title="Borrar lista">🗑</button></div><button class="ghost" id="sv">Guardar cola como lista</button></div>
   <div class="tp" data-p="pomo" hidden><div class="clock" id="ck"></div><div class="row"><button id="pw">Enfocar 25 min</button><button class="ghost" id="pr">Descanso 5</button><button class="ghost" id="pi">Parar</button></div><small>El temporizador es compartido: todos en la sala ven el mismo tiempo.</small></div>
   <div class="tp" data-p="pizarra" hidden><div class="row"><input id="bc" type="color" value="#ffffff"><select id="bw"><option value="3">Fino</option><option value="7">Medio</option><option value="14">Grueso</option></select><button class="ghost" id="bx">Borrar todo</button></div><canvas id="bd" width="800" height="500"></canvas></div>
@@ -113,7 +113,10 @@ async function room(id){
   cc.onchange=ce.onchange=cb.onchange=cn.onchange=bu.onchange=th;
   cd.onclick=async()=>{if(confirm('¿Eliminar esta sala?')){try{await api(`rooms/${id}/del`,{method:'POST',body:{}});location.hash='#/'}catch(x){alert(x)}}};
   for(const [el,k,w,h,q] of [[fb,'b',640,240,.8],[fa,'a',160,160,.85]])el.onchange=async()=>{const f=el.files[0];if(!f)return;try{await api(`rooms/${id}/img`,{method:'POST',body:{k,data:await shrink(f,w,h,q)}});el.value='';await poll()}catch(x){alert(x)}};
-  let tab='cola',seen=null;
+  let tab='cola',seen=null,ping=null,ac;
+  const beep=()=>{if(localStorage.mute==='1')return;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1175,t+.09);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.28);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+.3)}catch(x){}};
+  const paintMu=()=>{const m=localStorage.mute==='1';mu.textContent=m?'🔕':'🔔';mu.title=m?'Activar el sonido de mensajes':'Silenciar el sonido de mensajes'};
+  mu.onclick=()=>{localStorage.mute=localStorage.mute==='1'?'0':'1';paintMu();beep()};paintMu();
   const sel=t=>{tab=t;document.querySelectorAll('.tp').forEach(p=>{p.hidden=p.dataset.p!==t});document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
     if(t==='chat'){const c=(R&&R.chat)||[];if(c.length)seen=c[c.length-1].ts;cbd.textContent='';cl.scrollTop=cl.scrollHeight;ci.focus()}};
   tabs.onclick=e=>{const b=e.target.closest('[data-t]');if(b)sel(b.dataset.t)};
@@ -162,7 +165,8 @@ async function room(id){
     const sg=JSON.stringify([R.idx,R.queue.map(x=>x.id+x.title)]);
     if(ql.dataset.g!==sg){ql.dataset.g=sg;ql.innerHTML=R.queue.map((x,i)=>`<div class="qi ${i===R.idx?'on':''}" data-i="${i}" draggable="true"><img src="${thumb(x.id)}" alt=""><span>${esc(x.title)}</span><button class="ghost" data-x="1" title="Quitar">✕</button></div>`).join('')||'<small>La cola está vacía</small>'}
     const ch=R.chat||[],lt=ch.length?ch[ch.length-1].ts:0,cg=ch.length+':'+lt;
-    if(seen===null||tab==='chat')seen=lt;cbd.textContent=ch.filter(m=>m.ts>seen&&m.u!==me()).length||'';
+    if(seen===null||tab==='chat')seen=lt;
+    if(ping===null)ping=lt;else if(lt>ping){if(ch.some(m=>m.ts>ping&&m.u!==me()))beep();ping=lt}cbd.textContent=ch.filter(m=>m.ts>seen&&m.u!==me()).length||'';
     if(cl.dataset.g!==cg){const nb=!cl.dataset.g||cl.scrollTop+cl.clientHeight>=cl.scrollHeight-30;cl.dataset.g=cg;cl.innerHTML=ch.map(m=>`<div><b>${esc(m.u)}</b> ${esc(m.t)}</div>`).join('')||'<small>Nadie ha escrito todavía</small>';if(nb)cl.scrollTop=cl.scrollHeight}
     if(!cu_ready()){cn.value=R.name;cc.value=R.color;ce.value=R.emoji;cb.value=R.bg;bu.value=R.bgm||'';cn.dataset.s=1}
     cn.disabled=cd.hidden=fb.parentElement.hidden=fa.parentElement.hidden=bu.parentElement.hidden=R.owner!==me();
