@@ -77,7 +77,7 @@ async function room(id){
   <div class="np"><div class="disc" id="dc"></div><div><h2 id="tt">Nada sonando</h2><small id="by">Busca una canción y dale clic</small></div>
   <div class="ctl"><button id="pv">⏮</button><button id="pp">⏯</button><button id="nx">⏭</button><input id="vol" type="range" min="0" max="100" value="70" aria-label="Volumen"></div></div>
   <details class="pn"><summary>Pizarra compartida</summary><div class="row"><input id="bc" type="color" value="#ffffff"><select id="bw"><option value="3">Fino</option><option value="7">Medio</option><option value="14">Grueso</option></select><button class="ghost" id="bx">Borrar todo</button></div><canvas id="bd" width="800" height="500"></canvas></details>
-  <div class="row"><input id="q" placeholder="Buscar música en YouTube"><button id="sb">Buscar</button></div><div id="res"></div></section>
+  <div class="row"><input id="q" placeholder="Buscar música o pegar un enlace de YouTube"><button id="sb">Buscar</button></div><div id="res"></div></section>
   <aside><div class="pn"><h3>Cola</h3><div id="ql"><small>La cola está vacía</small></div></div>
   <div class="pn"><h3>Pomodoro compartido</h3><div class="clock" id="ck"></div><div class="row"><button id="pw">Enfocar 25 min</button><button class="ghost" id="pr">Descanso 5</button><button class="ghost" id="pi">Parar</button></div></div>
   <div class="pn"><h3>Personalizar sala</h3><div class="row"><input id="cn" placeholder="Nombre"><input id="cc" type="color" value="#8b5cf6"></div>
@@ -99,7 +99,9 @@ async function room(id){
   bd.onpointerup=()=>{if(cur){const s=cur;cur=null;act({type:'stroke',s})}};
   bx.onclick=()=>{if(confirm('¿Borrar la pizarra para todos?'))act({type:'clear'})};
   async function syncBoard(){if(busy||cur)return;busy=true;try{const j=await api(`rooms/${id}/board?from=${bs.length}&v=${bv}`);if(j.reset)bs=[];bv=j.v;bs.push(...j.strokes);bd.getContext('2d').clearRect(0,0,800,500);bs.forEach(dS)}catch(x){}busy=false}
-  const search=async()=>{if(!q.value.trim())return;res.innerHTML='<small>Buscando…</small>';
+  const search=async()=>{if(!q.value.trim())return;
+    if(/youtu\.?be/.test(q.value)){res.innerHTML='<small>Leyendo enlace…</small>';try{const j=await api('link?q='+encodeURIComponent(q.value.trim()));await act({type:'addmany',vs:j.items});res.innerHTML=`<small>${j.items.length>1?'Se agregaron '+j.items.length+' canciones a la cola':'Se agregó a la cola: '+esc(j.items[0].title)}</small>`;q.value=''}catch(x){res.textContent=x}return}
+    res.innerHTML='<small>Buscando…</small>';
     try{L=await api('search?q='+encodeURIComponent(q.value));res.innerHTML=L.map((x,i)=>`<div class="rs" data-i="${i}"><img src="${thumb(x.id)}" alt=""><div><b>${esc(x.title)}</b><small>${esc(x.ch)}</small></div><button class="ghost" data-n="1" title="Reproducir ahora">▶</button></div>`).join('')||'<small>Sin resultados</small>'}catch(x){res.textContent=x}};
   sb.onclick=search;q.onkeydown=e=>{if(e.key==='Enter')search()};
   res.onclick=e=>{const d=e.target.closest('[data-i]');if(d)act({type:e.target.dataset.n?'now':'add',v:L[+d.dataset.i]})};
