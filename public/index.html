@@ -55,7 +55,7 @@ addEventListener('hashchange',route);route();
 function login(){
   app.innerHTML=`<div class="box"><h1>Vibra</h1><small>Música en sala, solo para invitados</small><input id="lu" placeholder="Usuario" autocomplete="username"><input id="lp" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="go">Entrar</button><div class="err" id="le"></div></div>`;
   const send=async()=>{try{const r=await api('login',{method:'POST',body:{u:lu.value.trim(),p:lp.value}});localStorage.t=r.t;localStorage.u=r.u;route()}catch(x){le.textContent=x}};
-  go.onclick=send;lp.onkeydown=e=>e.key==='Enter'&&send()}
+  go.onclick=send;lp.onkeydown=e=>{if(e.key==='Enter')send()}}
 
 function lobby(){
   app.innerHTML=bar()+`<main><h2>Salas</h2><div class="row"><input id="nn" placeholder="Nombre de tu sala nueva"><button id="mk">Crear sala</button></div><div class="grid" id="gr"></div></main>`;
@@ -88,11 +88,11 @@ async function room(id){
   bd.onpointerdown=e=>{bd.setPointerCapture(e.pointerId);cur={c:bc.value,w:+bw.value,p:[pt(e)]};dS(cur)};
   bd.onpointermove=e=>{if(!cur)return;cur.p.push(pt(e));dS({...cur,p:cur.p.slice(-2)});if(cur.p.length>=790){const s=cur;cur={...s,p:[s.p[s.p.length-1]]};act({type:'stroke',s})}};
   bd.onpointerup=()=>{if(cur){const s=cur;cur=null;act({type:'stroke',s})}};
-  bx.onclick=()=>confirm('¿Borrar la pizarra para todos?')&&act({type:'clear'});
+  bx.onclick=()=>{if(confirm('¿Borrar la pizarra para todos?'))act({type:'clear'})};
   async function syncBoard(){if(busy||cur)return;busy=true;try{const j=await api(`rooms/${id}/board?from=${bs.length}&v=${bv}`);if(j.reset)bs=[];bv=j.v;bs.push(...j.strokes);bd.getContext('2d').clearRect(0,0,800,500);bs.forEach(dS)}catch(x){}busy=false}
   const search=async()=>{if(!q.value.trim())return;res.innerHTML='<small>Buscando…</small>';
     try{L=await api('search?q='+encodeURIComponent(q.value));res.innerHTML=L.map((x,i)=>`<div class="rs" data-i="${i}"><img src="${thumb(x.id)}" alt=""><div><b>${esc(x.title)}</b><small>${esc(x.ch)}</small></div><button class="ghost" data-n="1" title="Reproducir ahora">▶</button></div>`).join('')||'<small>Sin resultados</small>'}catch(x){res.textContent=x}};
-  sb.onclick=search;q.onkeydown=e=>e.key==='Enter'&&search();
+  sb.onclick=search;q.onkeydown=e=>{if(e.key==='Enter')search()};
   res.onclick=e=>{const d=e.target.closest('[data-i]');if(d)act({type:e.target.dataset.n?'now':'add',v:L[+d.dataset.i]})};
 
   await new Promise(ok=>{if(window.YT&&YT.Player)return ok();window.onYouTubeIframeAPIReady=ok;const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s)});
