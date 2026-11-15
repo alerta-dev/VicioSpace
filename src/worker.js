@@ -15,6 +15,7 @@ export default {
     const users = Object.fromEntries((env.USERS || '').split(',').map(x => x.trim()).filter(Boolean)
       .map(x => { const i = x.indexOf(':'); return [x.slice(0, i), x.slice(i + 1)]; }));
 
+    if (path.startsWith('/api/img/')) return env.HUB.get(env.HUB.idFromName('hub')).fetch(new Request('https://hub' + path.slice(4)));
     if (path === '/api/login') {
       const hub = env.HUB.get(env.HUB.idFromName('hub')), ip = req.headers.get('cf-connecting-ip') || 'x';
       const rl = a => hub.fetch(new Request('https://hub/rl/' + a, { headers: { 'x-ip': ip } }));
@@ -51,6 +52,17 @@ export class Hub {
     const d = (await this.s.storage.get('d')) || { rooms: {} };
     const b = req.method === 'POST' ? await req.json() : {};
     let o, w = 0;
+    if (p[0] === 'img') { // público: /img/<b|a|u>/<id> (b=banner, a=imagen de sala, u=foto de usuario)
+      const data = ['b', 'a', 'u'].includes(p[1]) && p[2] ? await this.s.storage.get(`img:${p[1]}:${decodeURIComponent(p[2])}`) : null;
+      if (!data) return new Response('', { status: 404 });
+      return new Response(Uint8Array.from(atob(data), c => c.charCodeAt(0)), { headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=300' } });
+    }
+    if (p[0] === 'me' && req.method === 'POST') {
+      if (typeof b.data !== 'string' || b.data.length > 60000 || !/^[A-Za-z0-9+/=]+$/.test(b.data)) return J({ error: 'Imagen no válida o muy pesada' }, 400);
+      await this.s.storage.put('img:u:' + u, b.data);
+      d.uv ??= {}; d.uv[u] = now; await this.s.storage.put('d', d);
+      return J({ v: now });
+    }
     if (p[0] === 'rl') { // límite de intentos de login: 5 fallos = bloqueo de 15 min por IP
       const k = 'rl:' + req.headers.get('x-ip'), e = (await this.s.storage.get(k)) || { n: 0, t: 0 }, W = 15 * 60000;
       if (p[1] === 'check') return J(e.n >= 5 && now - e.t < W ? { blocked: true, wait: Math.ceil((W - (now - e.t)) / 60000) } : {});
@@ -63,14 +75,20 @@ export class Hub {
         const id = crypto.randomUUID().slice(0, 8);
         d.rooms[id] = { id, name: String(b.name || 'Sala').slice(0, 40), owner: u, color: '#8b5cf6', emoji: '🎧', bg: 'noche', board: [], bv: 0, queue: [], idx: -1, playing: false, pos: 0, at: now, pomo: { mode: 'idle', end: 0 } };
         w = 1; o = { id };
-      } else o = Object.values(d.rooms).map(r => ({ id: r.id, name: r.name, owner: r.owner, color: r.color, emoji: r.emoji, now: r.queue[r.idx]?.title, n: this.who(r.id).length }));
+      } else o = Object.values(d.rooms).map(r => ({ id: r.id, name: r.name, owner: r.owner, color: r.color, emoji: r.emoji, now: r.queue[r.idx]?.title, ib: r.ib || 0, ia: r.ia || 0, ou: d.uv?.[r.owner] || 0, n: this.who(r.id).length }));
     } else {
       const r = d.rooms[p[1]];
       if (!r) return J({ error: 'No existe' }, 404);
       (this.pr[r.id] ??= {})[u] = now;
-      if (p[2] === 'del') {
+      if (p[2] === 'img') {
+        if (r.owner !== u) return J({ error: 'Solo quien creó la sala puede cambiar sus imágenes' }, 403);
+        const k = b.k;
+        if (!['b', 'a'].includes(k) || typeof b.data !== 'string' || b.data.length > (k === 'b' ? 200000 : 60000) || !/^[A-Za-z0-9+/=]+$/.test(b.data)) return J({ error: 'Imagen no válida o muy pesada' }, 400);
+        await this.s.storage.put(`img:${k}:${r.id}`, b.data);
+        r['i' + k] = now; w = 1; o = { ok: 1 };
+      } else if (p[2] === 'del') {
         if (r.owner !== u) return J({ error: 'Solo quien creó la sala puede eliminarla' }, 403);
-        delete d.rooms[r.id]; w = 1; o = {};
+        delete d.rooms[r.id]; await this.s.storage.delete([`img:b:${r.id}`, `img:a:${r.id}`]); w = 1; o = {};
       } else {
         r.board ??= []; r.bv ??= 0;
         if (p[2] === 'board') {
