@@ -5,6 +5,14 @@ async function sign(s, k) {
   return btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(s)))));
 }
 const dec = s => s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+function parseLink(s) {
+  let u; try { u = new URL(s.trim()); } catch { return null; }
+  if (!/(^|\.)(youtube\.com|youtu\.be)$/.test(u.hostname)) return null;
+  const list = u.searchParams.get('list');
+  if (list && /^[\w-]{10,60}$/.test(list) && !/^(RD|UL)/.test(list)) return { list };
+  const v = u.hostname.endsWith('youtu.be') ? u.pathname.split('/')[1] : (u.searchParams.get('v') || u.pathname.split('/')[2]);
+  return /^[\w-]{11}$/.test(v || '') ? { v } : null;
+}
 const J = (o, s = 200) => Response.json(o, { status: s });
 const BGS = ['noche', 'atardecer', 'bosque', 'oceano'];
 
@@ -36,6 +44,31 @@ export default {
       if (!r.ok) return J({ error: 'YouTube no respondió (¿se acabó la cuota diaria?)' }, 502);
       const j = await r.json();
       return J(j.items.map(x => ({ id: x.id.videoId, title: dec(x.snippet.title), ch: dec(x.snippet.channelTitle) })));
+    }
+    if (path === '/api/link') {
+      const t = parseLink(url.searchParams.get('q') || '');
+      if (!t) return J({ error: 'Ese enlace no parece un video o lista de YouTube' }, 400);
+      const yt = 'https://www.googleapis.com/youtube/v3/';
+      const items = [];
+      if (t.v) {
+        const r = await fetch(`${yt}videos?part=snippet&id=${t.v}&key=${env.YT_KEY}`);
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !(j.items || []).length) return J({ error: 'No encontré ese video' }, 404);
+        items.push(...j.items.map(x => ({ id: x.id, title: dec(x.snippet.title), ch: dec(x.snippet.channelTitle) })));
+      } else {
+        let tok = '';
+        for (let n = 0; n < 2; n++) {
+          const r = await fetch(`${yt}playlistItems?part=snippet&maxResults=50&playlistId=${t.list}${tok}&key=${env.YT_KEY}`);
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) return J({ error: 'No pude leer esa lista (¿es privada?)' }, 502);
+          items.push(...(j.items || []).filter(x => x.snippet.resourceId?.videoId && !['Private video', 'Deleted video'].includes(x.snippet.title))
+            .map(x => ({ id: x.snippet.resourceId.videoId, title: dec(x.snippet.title), ch: dec(x.snippet.videoOwnerChannelTitle || '') })));
+          if (!j.nextPageToken) break;
+          tok = '&pageToken=' + j.nextPageToken;
+        }
+        if (!items.length) return J({ error: 'La lista está vacía o no es pública' }, 404);
+      }
+      return J({ items, list: !!t.list });
     }
     const stub = env.HUB.get(env.HUB.idFromName('hub'));
     return stub.fetch(new Request('https://hub' + path.slice(4), {
@@ -116,6 +149,15 @@ function act(r, b, u, now) {
       const it = { id: v.id, title: String(v.title).slice(0, 120), by: u };
       if (b.type === 'now' && r.idx >= 0) { q.splice(r.idx + 1, 0, it); go(r.idx + 1); }
       else { q.push(it); if (r.idx < 0 || b.type === 'now') go(q.length - 1); }
+      break;
+    }
+    case 'addmany': {
+      const first = q.length;
+      for (const v of Array.isArray(b.vs) ? b.vs.slice(0, 100) : []) {
+        if (q.length >= 300) break;
+        if (v && /^[\w-]{11}$/.test(v.id)) q.push({ id: v.id, title: String(v.title).slice(0, 120), by: u });
+      }
+      if (r.idx < 0 && q.length > first) go(first);
       break;
     }
     case 'play': if (Number.isInteger(b.i) && q[b.i]) go(b.i); break;
